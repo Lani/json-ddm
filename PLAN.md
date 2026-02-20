@@ -13,18 +13,18 @@ This plan outlines the steps to implement the Deterministic Deep Merge (DDM) lib
   - Create the `JsonDdmOptions` class as per the spec.
   - specific properties: `IdKey` (default "$id"), `PositionKey` (default "$position"), `AnchorKey` (default "$anchor"), `PatchKey` (default "$patch"), `ValueKey` (default "$value"), `ThrowOnMissingAnchor` (default true).
 
-- [ ] **1.3. Create the Merger Class Skeleton**
+- [x] **1.3. Create the Merger Class Skeleton**
   - Verify that the `JsonDdm` class exists.
   - Define the main public entry point: `JsonNode? Merge(JsonNode? baseNode, JsonNode? overrideNode)`.
 
 ## Phase 2: Basic Merging Logic (No Reordering)
 
-- [ ] **2.1. Implement Primitive Merging**
+- [x] **2.1. Implement Primitive Merging**
   - Handle nulls, strings, numbers, booleans.
   - Implement "override replaces base" logic for primitives.
   - Create unit tests for basic primitive overrides.
 
-- [ ] **2.2. Implement Object Merging (Recursive)**
+- [x] **2.2. Implement Object Merging (Recursive)**
   - Iterate through keys in the override object.
   - If key doesn't exist in base, add it.
   - If key exists, recursively call `Merge`.
