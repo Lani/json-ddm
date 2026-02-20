@@ -68,6 +68,19 @@ public class JsonDdm
       var key = kvp.Key;
       var overrideValue = kvp.Value;
 
+      // Check for $patch: "delete"
+      if (overrideValue is JsonObject overrideSubObj)
+      {
+         if (overrideSubObj.TryGetPropertyValue(_options.PatchKey, out var patchVal) && 
+             patchVal is JsonValue && 
+             patchVal.GetValueKind() == System.Text.Json.JsonValueKind.String &&
+             patchVal.GetValue<string>() == "delete")
+         {
+             result.Remove(key);
+             continue;
+         }
+      }
+
       if (result.ContainsKey(key))
       {
         var baseValue = result[key];

@@ -32,7 +32,7 @@ This plan outlines the steps to implement the Deterministic Deep Merge (DDM) lib
 
 ## Phase 3: Control Keys & Patching
 
-- [ ] **3.1. Implement `$patch: "delete"`**
+- [x] **3.1. Implement `$patch: "delete"`**
   - Modify Object merging logic to check for `$patch` property in the override object.
   - If found, remove the key from the result instead of merging.
   - Handle array item deletion via `$patch` inside array processing (to be implemented in Phase 4, but structure it now).
