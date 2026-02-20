@@ -1,7 +1,4 @@
-﻿using Xunit;
-using JsonDdm;
-
-namespace JsonDdm.Tests;
+﻿namespace JsonDdm.Tests;
 
 public class BasicTests
 {
