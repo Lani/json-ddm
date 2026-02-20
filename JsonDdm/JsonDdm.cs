@@ -45,11 +45,27 @@ public class JsonDdm
 
     if (baseNode is null || baseNode is JsonValue)
     {
+      if (overrideNode is JsonObject ovObj)
+      {
+        return MergeObjects(new JsonObject(), ovObj);
+      }
+      if (overrideNode is JsonArray ovArr)
+      {
+        return MergeArrays(new JsonArray(), ovArr);
+      }
       return overrideNode.DeepClone();
     }
 
     if (baseNode.GetType() != overrideNode.GetType())
     {
+      if (overrideNode is JsonObject ovObj)
+      {
+        return MergeObjects(new JsonObject(), ovObj);
+      }
+      if (overrideNode is JsonArray ovArr)
+      {
+        return MergeArrays(new JsonArray(), ovArr);
+      }
       return overrideNode.DeepClone();
     }
 
@@ -111,7 +127,7 @@ public class JsonDdm
         // No match (new ID or no ID): Append
         if (!IsDelete(overrideItem))
         {
-          appendList.Add(overrideItem?.DeepClone());
+          appendList.Add(Merge(null, overrideItem));
         }
       }
     }
@@ -253,6 +269,17 @@ public class JsonDdm
       var key = kvp.Key;
       var overrideValue = kvp.Value;
 
+      // Handle key escaping (Phase 6.1)
+      // If key starts with "$$", unescape it to "$"
+      // Spec: "If a data property literally matches a control key... escape it"
+      // Default strategy is doubling prefix.
+      // We'll apply this to any key starting with "$$".
+      string targetKey = key;
+      if (key.StartsWith("$$"))
+      {
+        targetKey = key.Substring(1);
+      }
+
       // Extract positioning info from overrideValue BEFORE merging
       if (overrideValue is JsonObject overrideSubObj)
       {
@@ -270,7 +297,7 @@ public class JsonDdm
           {
             anchor = anchorNode.GetValue<string>();
           }
-          moves.Add((key, pos, anchor));
+          moves.Add((targetKey, pos, anchor));
         }
 
         // Check for $patch: "delete"
@@ -279,74 +306,41 @@ public class JsonDdm
             patchVal.GetValueKind() == System.Text.Json.JsonValueKind.String &&
             patchVal.GetValue<string>() == "delete")
         {
-          result.Remove(key);
+          result.Remove(targetKey);
           continue;
         }
       }
 
-      if (result.ContainsKey(key))
+      if (result.ContainsKey(targetKey))
       {
-        var baseValue = result[key];
+        var baseValue = result[targetKey];
         // Special case: Primitive base + Metadata-only override (no $value) -> preserve base value
         if ((baseValue is JsonValue || baseValue is null) &&
             overrideValue is JsonObject ovObj &&
             !ovObj.ContainsKey(_options.ValueKey) &&
             (ovObj.ContainsKey(_options.PositionKey) || ovObj.ContainsKey(_options.PatchKey)))
         {
-          // If it's just metadata (position/patch), we keep baseValue.
-          // But we already handled patch:delete above.
-          // If it's just position, we keep baseValue.
-          // But if it has other properties, it replaces baseValue (primitive).
-          // Spec: "If the key is a primitive... If $value missing, preserve original base value."
-          // This implies we ignore the override object structure and keep the primitive?
-          // Yes, effectively strict preservation of primitive if no new value provided.
-          // But what if override has other data? E.g. {"a": 1} overrides {"a": {"$position": "start", "b": 2}}?
-          // No, the case is: Base={"a": 1}, Override={"a": {"$position": "start"}}.
-          // Result should be {"a": 1} (but moved).
-          // Currently Merge(1, {"$position": "start"}) returns {"$position": "start"}.
-          // Correct approach: Return baseValue.
-
-          // However, we need to be careful not to discard other updates.
-          // If override has ANY data keys, it replaces primitive.
-          // How to distinguish data keys from control keys?
-          // Only strictly if override has NO $value and ONLY control keys?
-          // Spec says "If the key is a primitive... If $value missing, preserve..."
-          // It doesn't say "unless other keys present".
-          // So if base is primitive, and override is object without $value, we ALWAYS preserve base primitive?
-          // This seems to imply override object CANNOT replace a primitive with an object unless it uses implicit replacement (by NOT using control keys?).
-          // Wait, if I want to replace 1 with {"x": 2}, I just do {"a": {"x": 2}}.
-          // Does {"x": 2} contain control keys? No.
-          // So logic: If override is Object AND contains control keys ($position), treat as metadata wrapper?
-
           bool hasControl = ovObj.ContainsKey(_options.PositionKey) || ovObj.ContainsKey(_options.AnchorKey);
           bool hasValue = ovObj.ContainsKey(_options.ValueKey);
 
           if (hasControl && !hasValue)
           {
             // Preserve base value, apply reordering (already captured in moves)
-            // Do NOT call Merge. Keep result[key] as is.
             continue;
           }
         }
 
-        result[key] = Merge(baseValue, overrideValue);
+        result[targetKey] = Merge(baseValue, overrideValue);
       }
       else
       {
         if (overrideValue is null)
         {
-          result[key] = null;
+          result[targetKey] = null;
         }
         else
         {
-          // New key.
-          // If override is object with $value, extract it. (Handled in Merge)
-          // If override is object with $position, Merge returns object.
-          // If purely metadata? e.g. {"a": {"$position": "start"}} where "a" didn't exist.
-          // Result: {"a": {"$position": "start"}}. 
-          // This seems fine for new keys? Or should it be ignored?
-          // Spec doesn't say.
-          result[key] = Merge(null, overrideValue);
+          result[targetKey] = Merge(null, overrideValue);
         }
       }
     }

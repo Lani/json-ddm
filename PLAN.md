@@ -75,7 +75,7 @@ This plan outlines the steps to implement the Deterministic Deep Merge (DDM) lib
 
 ## Phase 6: Refinement & Edge Cases
 
-- [ ] **6.1. Escaping Support**
+- [x] **6.1. Escaping Support**
   - Implement logic to handle double prefixes (e.g., `$$id` -> `$id`).
   - Ensure control keys can be used as literal data keys if escaped.
   - Create unit tests for escaping.
