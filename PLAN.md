@@ -38,20 +38,20 @@ This plan outlines the steps to implement the Deterministic Deep Merge (DDM) lib
   - Handle array item deletion via `$patch` inside array processing (to be implemented in Phase 4, but structure it now).
   - Create unit tests for deleting keys.
 
-- [ ] **3.2. Implement `$value` Handling (Type Switching)**
+- [x] **3.2. Implement `$value` Handling (Type Switching)**
   - Handle cases where a primitive in base is overridden by an object with `$value`.
   - Extract the value from `$value` and use it as the merger result for that node.
   - Create unit tests for upgrading a primitive to an object-wrapper and back.
 
 ## Phase 4: Array Merging & Identity
 
-- [ ] **4.1. Implement Array Matching Strategy**
+- [x] **4.1. Implement Array Matching Strategy**
   - Iterate override array.
   - Identify items by `$id` (using the configured `IdKey`).
   - Match against base array items with the same `$id`.
   - Handle items without `$id` (treat as new/append).
 
-- [ ] **4.2. Implement Array Item Merging**
+- [x] **4.2. Implement Array Item Merging**
   - If match found, recursively `Merge` the array items.
   - If no match, add the new item.
   - Respect `$patch: "delete"` within array items to remove them from the list.
@@ -59,16 +59,16 @@ This plan outlines the steps to implement the Deterministic Deep Merge (DDM) lib
 
 ## Phase 5: Reordering Logic (The Core Complexity)
 
-- [ ] **5.1. Implement Reordering Logic Structure**
+- [x] **5.1. Implement Reordering Logic Structure**
   - Create a helper method/class to handle list manipulation based on `$position` and `$anchor`.
   - Supported positions: `start`, `end`, `before`, `after`.
 
-- [ ] **5.2. Apply Reordering to Arrays**
+- [x] **5.2. Apply Reordering to Arrays**
   - After merging array items, apply single-pass or multi-pass reordering.
   - Handle `ThrowOnMissingAnchor` logic (throw vs default to end).
   - Create unit tests for array item reordering.
 
-- [ ] **5.3. Apply Reordering to Object Properties**
+- [x] **5.3. Apply Reordering to Object Properties**
   - Use `JsonObject` manipulation to change property order.
   - Apply the same `$position`/`$anchor` logic to object keys.
   - Create unit tests for object property reordering.
