@@ -8,6 +8,7 @@ A JSON Deterministic Deep Merge .NET library.
 - Declarative array item reordering based on unique identifiers.
 - Schema-agnostic: No need for C# classes or JSON Schema.
 - Control keys for patching, reordering, and value updates.
+- **Reverse Merge (Diff)**: Generate an override document by comparing two JSON states.
 - Broad compatibility (.NET Standard 2.0+)
 
 ## Why JsonDdm? (Comparison)
@@ -26,6 +27,14 @@ A JSON Deterministic Deep Merge .NET library.
 
 1.  **The Array Identity Gap:** In standard tools, updating an item in a list usually requires knowing its index. If the base layer changes, your index-based override breaks. `JsonDdm` solves this with robust `$id` matching.
 2.  **Declarative Reordering:** Instead of calculating target indices (which break easily), `JsonDdm` allows you to position items relative to others (e.g., "Put this _before_ the 'Save' button").
+
+### Reverse Merge (Diff Generation)
+
+JsonDdm supports generating an **Override Document** by comparing a **Base** configuration and a **Target** configuration (e.g., from a UI editor). This is ideal for scenarios where you want to persist only the user's customizations (the delta) rather than the entire document.
+
+- **Minimal Diffs:** Only saves modified values.
+- **Deletions:** Automatically generates `$patch: "delete"` for removed items.
+- **Reordering:** Detects changes in list order and generates `$position` and `$anchor` markers.
 
 ## An Opinionated Library
 
