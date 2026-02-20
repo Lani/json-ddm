@@ -1,7 +1,7 @@
 ﻿namespace JsonDdm;
 
 /// <summary>
-/// A robust JSON library.
+/// JSON Deterministic Deep Merge.
 /// </summary>
 public class JsonDdm
 {

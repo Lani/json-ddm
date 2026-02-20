@@ -2,6 +2,8 @@
 
 This specification defines a schema-agnostic protocol for merging multiple JSON configuration layers into a single document. It is designed for a .NET backend to process frontend-driven configurations where the override layer mimics the original structure. It enables deep merging, item reordering, and partial updates without requiring path-based syntax (like RFC 6902).
 
+For a detailed comparison with other libraries (like standard .NET config, JSON Patch, etc.), see the [Why JsonDdm? section in the README](README.md#why-jsonddm-comparison).
+
 ### 1. Core Principles
 
 - **Determinism:** The merge result must be identical regardless of the environment, provided the input layers and their order remain the same.
@@ -20,13 +22,11 @@ To merge items instead of simply replacing them, the engine must identify "the s
 
 The engine operations are controlled by specific metadata keys. These keys are configurable, but standard defaults are defined below.
 
-#### 3.1 Naming Strategy
+#### 3.1 Naming Strategy & Escaping
 
-The default strategy uses a `$` prefix to distinguish control keys from data. However, the engine can be configured to use:
+The default strategy uses a `$` prefix to distinguish control keys from data.
 
-- **Different Prefixes:** e.g., `@id`, `_id`, `__id`.
-- **No Prefix:** e.g., `id` (Risk: high collision with data).
-- **Custom Names:** Valid JSON keys mapped to specific control functions.
+- **Escaping:** If a data property literally matches a control key (e.g., you need a field named `$id`), escape it by doubling the prefix (e.g., `$$id`). The engine will unescape it to `$id` in the final output.
 
 #### 3.2 Default Control Keys
 
@@ -60,17 +60,22 @@ The value in the higher-priority layer completely overwrites the lower-priority 
 
 1. **Alignment:** Iterate through the override array.
 2. **Merge:** For items with a matching `$id`, perform a deep merge of their properties.
+   - **Deletion:** If an item contains `$patch: "delete"`, it is removed from the array.
 3. **Insertion:** Items with a new `$id` (or no `$id`) are treated as new entries.
 4. **Reorder:** Apply the `$position` and `$anchor` logic.
 
 - _Example:_ If an item has `$position: "before", $anchor: "auth"`, it is moved immediately before the item with `$id: "auth"`.
+
+**Note on Primitive Arrays:** Arrays containining primitive values (strings, numbers, booleans) do not support `$id` matching. They are treated as "Append Only" by default. To modify a specific primitive, the entire array must be replaced in the override layer, or the Primitives must be wrapped in objects with IDs in the base layer.
 
 ### 5. Deterministic Conflict Resolution
 
 In cases of ambiguity (e.g., Layer B moves an item to the start, Layer C moves it to the end):
 
 - **Last-In-Wins:** The layer with the highest priority (processed last) dictates the final state of both data and position.
-- **Missing Anchors:** If a `$position` refers to an `$anchor` that does not exist in the merged set, the item defaults to the `"end"` of the collection.
+- **Missing Anchors:** If a `$position` refers to an `$anchor` that does not exist in the merged set:
+  - **Strict Mode (Recommended):** The merge operation throws an exception, preventing silent misconfiguration.
+  - **Relaxed Mode:** The item defaults to the `"end"` of the collection.
 
 ### 6. Comprehensive Example
 
@@ -140,9 +145,61 @@ In cases of ambiguity (e.g., Layer B moves an item to the start, Layer C moves i
       public string AnchorKey { get; set; } = "$anchor";
       public string PatchKey { get; set; } = "$patch";
       public string ValueKey { get; set; } = "$value";
+      /// <summary>
+      /// If true, throws an exception when an anchor is missing. Default is true for safety.
+      /// </summary>
+      public bool ThrowOnMissingAnchor { get; set; } = true;
   }
   ```
 
 - **Data Structure:** Use `System.Text.Json.Nodes.JsonObject` and `JsonArray`.
 - **Sorting:** For Arrays, use a stable sort or a two-pass approach (Merge properties first, then apply positional moves).
 - **Object Reordering:** Use `JsonObject`'s ability to manipulate property order by removing and re-inserting nodes at specific indices.
+- **Trade-offs:** Be aware that using `$value` changes the schema type of a property in the override layer (e.g., a number becomes an object). This prevents standard JSON Schema validation on the raw override files.
+
+### 8. JSON Schema & Tooling
+
+To validate DDM override files, the original JSON Schema must be patched to allow properties to be _either_ their original type _or_ a DDM Control Object.
+
+#### 8.1 Schema Pattern
+
+Use `$defs` to define the control structure once, then reference it via `oneOf`.
+
+```json
+{
+  "$defs": {
+    "ddmControls": {
+      "type": "object",
+      "properties": {
+        "$position": { "enum": ["start", "end", "before", "after"] },
+        "$anchor": { "type": "string" },
+        "$patch": { "const": "delete" }
+      }
+    },
+    "ddmInteger": {
+      "oneOf": [
+        { "type": "integer" },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/ddmControls" },
+            {
+              "properties": { "$value": { "type": "integer" } },
+              "required": ["$value"]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+#### 8.2 CLI Tooling Requirement
+
+The implementation should include a command-line tool (e.g., `json-ddm-schema-patch`) that:
+
+1.  Accepts a standard JSON Schema file.
+2.  Recursively traverses the schema.
+3.  Wraps every property definition in a `oneOf` block allowing DDM controls.
+4.  Injects the standard `$defs` for DDM keys.
+5.  Outputs a "DDM-Compatible" schema file for use in validation pipelines.
