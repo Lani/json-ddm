@@ -101,14 +101,7 @@ public class ObjectReorderingTests
         }
         """;
 
-    var overrideJson = """
-        {
-            "c": { "$value": 3, "$position": "between", "$anchor": "a" } 
-        }
-        """;
-    // Note: keeping "between" which is invalid, to see default behavior or if I should use valid
-    // Actually test "after"
-
+    // Note: previously tested "between" which is invalid, now testing "after"
     var overrideJson2 = """
         {
             "c": { "$value": 3, "$position": "after", "$anchor": "a" } 

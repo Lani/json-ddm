@@ -256,22 +256,22 @@ public class JsonDdm
       // Extract positioning info from overrideValue BEFORE merging
       if (overrideValue is JsonObject overrideSubObj)
       {
-         bool hasPosition = overrideSubObj.TryGetPropertyValue(_options.PositionKey, out var posNode) &&
-             posNode is JsonValue &&
-             posNode.GetValueKind() == System.Text.Json.JsonValueKind.String;
-         
-         if (hasPosition)
-         {
-             var pos = posNode.GetValue<string>(); 
-             string? anchor = null;
-             if (overrideSubObj.TryGetPropertyValue(_options.AnchorKey, out var anchorNode) &&
-                  anchorNode is JsonValue &&
-                  anchorNode.GetValueKind() == System.Text.Json.JsonValueKind.String)
-             {
-                 anchor = anchorNode.GetValue<string>();
-             }
-             moves.Add((key, pos, anchor));
-         }
+        bool hasPosition = overrideSubObj.TryGetPropertyValue(_options.PositionKey, out var posNode) &&
+            posNode is JsonValue &&
+            posNode.GetValueKind() == System.Text.Json.JsonValueKind.String;
+
+        if (hasPosition)
+        {
+          var pos = posNode!.GetValue<string>();
+          string? anchor = null;
+          if (overrideSubObj.TryGetPropertyValue(_options.AnchorKey, out var anchorNode) &&
+               anchorNode is JsonValue &&
+               anchorNode.GetValueKind() == System.Text.Json.JsonValueKind.String)
+          {
+            anchor = anchorNode.GetValue<string>();
+          }
+          moves.Add((key, pos, anchor));
+        }
 
         // Check for $patch: "delete"
         if (overrideSubObj.TryGetPropertyValue(_options.PatchKey, out var patchVal) &&
@@ -288,45 +288,45 @@ public class JsonDdm
       {
         var baseValue = result[key];
         // Special case: Primitive base + Metadata-only override (no $value) -> preserve base value
-        if ((baseValue is JsonValue || baseValue is null) && 
-            overrideValue is JsonObject ovObj && 
+        if ((baseValue is JsonValue || baseValue is null) &&
+            overrideValue is JsonObject ovObj &&
             !ovObj.ContainsKey(_options.ValueKey) &&
             (ovObj.ContainsKey(_options.PositionKey) || ovObj.ContainsKey(_options.PatchKey)))
         {
-            // If it's just metadata (position/patch), we keep baseValue.
-            // But we already handled patch:delete above.
-            // If it's just position, we keep baseValue.
-            // But if it has other properties, it replaces baseValue (primitive).
-            // Spec: "If the key is a primitive... If $value missing, preserve original base value."
-            // This implies we ignore the override object structure and keep the primitive?
-            // Yes, effectively strict preservation of primitive if no new value provided.
-            // But what if override has other data? E.g. {"a": 1} overrides {"a": {"$position": "start", "b": 2}}?
-            // No, the case is: Base={"a": 1}, Override={"a": {"$position": "start"}}.
-            // Result should be {"a": 1} (but moved).
-            // Currently Merge(1, {"$position": "start"}) returns {"$position": "start"}.
-            // Correct approach: Return baseValue.
-            
-            // However, we need to be careful not to discard other updates.
-            // If override has ANY data keys, it replaces primitive.
-            // How to distinguish data keys from control keys?
-            // Only strictly if override has NO $value and ONLY control keys?
-            // Spec says "If the key is a primitive... If $value missing, preserve..."
-            // It doesn't say "unless other keys present".
-            // So if base is primitive, and override is object without $value, we ALWAYS preserve base primitive?
-            // This seems to imply override object CANNOT replace a primitive with an object unless it uses implicit replacement (by NOT using control keys?).
-            // Wait, if I want to replace 1 with {"x": 2}, I just do {"a": {"x": 2}}.
-            // Does {"x": 2} contain control keys? No.
-            // So logic: If override is Object AND contains control keys ($position), treat as metadata wrapper?
-            
-            bool hasControl = ovObj.ContainsKey(_options.PositionKey) || ovObj.ContainsKey(_options.AnchorKey);
-            bool hasValue = ovObj.ContainsKey(_options.ValueKey);
-            
-            if (hasControl && !hasValue)
-            {
-                // Preserve base value, apply reordering (already captured in moves)
-                // Do NOT call Merge. Keep result[key] as is.
-                continue; 
-            }
+          // If it's just metadata (position/patch), we keep baseValue.
+          // But we already handled patch:delete above.
+          // If it's just position, we keep baseValue.
+          // But if it has other properties, it replaces baseValue (primitive).
+          // Spec: "If the key is a primitive... If $value missing, preserve original base value."
+          // This implies we ignore the override object structure and keep the primitive?
+          // Yes, effectively strict preservation of primitive if no new value provided.
+          // But what if override has other data? E.g. {"a": 1} overrides {"a": {"$position": "start", "b": 2}}?
+          // No, the case is: Base={"a": 1}, Override={"a": {"$position": "start"}}.
+          // Result should be {"a": 1} (but moved).
+          // Currently Merge(1, {"$position": "start"}) returns {"$position": "start"}.
+          // Correct approach: Return baseValue.
+
+          // However, we need to be careful not to discard other updates.
+          // If override has ANY data keys, it replaces primitive.
+          // How to distinguish data keys from control keys?
+          // Only strictly if override has NO $value and ONLY control keys?
+          // Spec says "If the key is a primitive... If $value missing, preserve..."
+          // It doesn't say "unless other keys present".
+          // So if base is primitive, and override is object without $value, we ALWAYS preserve base primitive?
+          // This seems to imply override object CANNOT replace a primitive with an object unless it uses implicit replacement (by NOT using control keys?).
+          // Wait, if I want to replace 1 with {"x": 2}, I just do {"a": {"x": 2}}.
+          // Does {"x": 2} contain control keys? No.
+          // So logic: If override is Object AND contains control keys ($position), treat as metadata wrapper?
+
+          bool hasControl = ovObj.ContainsKey(_options.PositionKey) || ovObj.ContainsKey(_options.AnchorKey);
+          bool hasValue = ovObj.ContainsKey(_options.ValueKey);
+
+          if (hasControl && !hasValue)
+          {
+            // Preserve base value, apply reordering (already captured in moves)
+            // Do NOT call Merge. Keep result[key] as is.
+            continue;
+          }
         }
 
         result[key] = Merge(baseValue, overrideValue);
@@ -353,45 +353,45 @@ public class JsonDdm
 
     if (moves.Count > 0)
     {
-        // Apply Reordering
-        var props = new List<KeyValuePair<string, JsonNode?>>();
-        foreach (var kvp in result) props.Add(new KeyValuePair<string, JsonNode?>(kvp.Key, kvp.Value));
+      // Apply Reordering
+      var props = new List<KeyValuePair<string, JsonNode?>>();
+      foreach (var kvp in result) props.Add(new KeyValuePair<string, JsonNode?>(kvp.Key, kvp.Value));
 
-        foreach (var (key, pos, anchor) in moves)
+      foreach (var (key, pos, anchor) in moves)
+      {
+        int currentIdx = props.FindIndex(p => p.Key == key);
+        if (currentIdx == -1) continue;
+
+        var kvp = props[currentIdx];
+        props.RemoveAt(currentIdx);
+
+        int targetIdx = props.Count;
+
+        if (pos == "start") targetIdx = 0;
+        else if (pos == "end") targetIdx = props.Count;
+        else if ((pos == "before" || pos == "after") && anchor != null)
         {
-             int currentIdx = props.FindIndex(p => p.Key == key);
-             if (currentIdx == -1) continue;
-             
-             var kvp = props[currentIdx];
-             props.RemoveAt(currentIdx);
-
-             int targetIdx = props.Count;
-
-             if (pos == "start") targetIdx = 0;
-             else if (pos == "end") targetIdx = props.Count;
-             else if ((pos == "before" || pos == "after") && anchor != null)
-             {
-                 int anchorIdx = props.FindIndex(p => p.Key == anchor);
-                 if (anchorIdx != -1)
-                 {
-                     if (pos == "before") targetIdx = anchorIdx;
-                     else if (pos == "after") targetIdx = anchorIdx + 1;
-                 }
-                 else if (_options.ThrowOnMissingAnchor)
-                 {
-                      throw new InvalidOperationException($"Anchor '{anchor}' not found for property '{key}'.");
-                 }
-             }
-
-             if (targetIdx >= props.Count) props.Add(kvp);
-             else props.Insert(targetIdx, kvp);
+          int anchorIdx = props.FindIndex(p => p.Key == anchor);
+          if (anchorIdx != -1)
+          {
+            if (pos == "before") targetIdx = anchorIdx;
+            else if (pos == "after") targetIdx = anchorIdx + 1;
+          }
+          else if (_options.ThrowOnMissingAnchor)
+          {
+            throw new InvalidOperationException($"Anchor '{anchor}' not found for property '{key}'.");
+          }
         }
 
-        result.Clear();
-        foreach (var kvp in props)
-        {
-             result[kvp.Key] = kvp.Value;
-        }
+        if (targetIdx >= props.Count) props.Add(kvp);
+        else props.Insert(targetIdx, kvp);
+      }
+
+      result.Clear();
+      foreach (var kvp in props)
+      {
+        result[kvp.Key] = kvp.Value;
+      }
     }
 
     return result;

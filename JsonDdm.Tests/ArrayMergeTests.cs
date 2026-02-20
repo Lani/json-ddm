@@ -89,13 +89,16 @@ public class ArrayMergeTests
     Assert.Equal(3, arr.Count);
 
     var itemA = arr.First(x => x?["$id"]?.GetValue<string>() == "a");
-    Assert.Equal(10, itemA["value"]?.GetValue<int>());
+    Assert.NotNull(itemA);
+    Assert.Equal(10, itemA!["value"]?.GetValue<int>());
 
     var itemB = arr.First(x => x?["$id"]?.GetValue<string>() == "b");
-    Assert.Equal(2, itemB["value"]?.GetValue<int>());
+    Assert.NotNull(itemB);
+    Assert.Equal(2, itemB!["value"]?.GetValue<int>());
 
     var itemC = arr.First(x => x?["$id"]?.GetValue<string>() == "c");
-    Assert.Equal(3, itemC["value"]?.GetValue<int>());
+    Assert.NotNull(itemC);
+    Assert.Equal(3, itemC!["value"]?.GetValue<int>());
   }
 
   [Fact]
