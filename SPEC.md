@@ -203,3 +203,25 @@ The implementation should include a command-line tool (e.g., `json-ddm-schema-pa
 3.  Wraps every property definition in a `oneOf` block allowing DDM controls.
 4.  Injects the standard `$defs` for DDM keys.
 5.  Outputs a "DDM-Compatible" schema file for use in validation pipelines.
+
+### 9. Diff Generation (Reverse Merge)
+
+To support editors and UI tools, the library must support generating a DDM override document by comparing a **Base** document and a **Target** document.
+
+`Diff(Base, Target) -> Override`
+
+The generated Override must satisfy the condition: `Merge(Base, Override) is structurally equal to Target`.
+
+#### 9.1 Diff Logic
+
+- **Equality:** If a node in Target is identical to Base, it is omitted from the Override.
+- **Modifications:** If a primitive value differs, the Target value is written to the Override.
+- **Additions:** If a key/item exists in Target but not Base, it is added to the Override.
+- **Deletions:** If a key/item exists in Base but not Target, it is added to the Override with `$patch: "delete"`.
+
+#### 9.2 Reordering Detection
+
+The Diff engine must detect changes in order for both Object keys and Array items (matched by `$id`).
+
+- If the order in Target differs from Base, the engine must generate minimal `$position` and `$anchor` markers.
+- **Heuristic:** The engine should prefer stable anchors. For example, if item A is moved to be before item B, generate `{ "$id": "A", "$position": "before", "$anchor": "B" }`.

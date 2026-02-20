@@ -84,28 +84,47 @@ This plan outlines the steps to implement the Deterministic Deep Merge (DDM) lib
   - Verify "Last-In-Wins" behavior (ensure strict order of operations).
   - Create complex scenarios with multiple merges to verify determinism.
 
-## Phase 7: CLI Tool (Schema Patching)
+## Phase 7: Diff Generation (Reverse Merge)
 
-- [ ] **7.1. Create CLI Project**
+- [ ] **7.1. Implement Basic Diff**
+  - Define `JsonNode? Diff(JsonNode? baseNode, JsonNode? targetNode)`.
+  - Handle primitive value changes.
+  - Handle object key additions and deletions (`$patch: "delete"`).
+  - Handle recursive object diffing.
+
+- [ ] **7.2. Implement Array Diff & Identity**
+  - Match array items by `$id`.
+  - Handle array item additions (new `$id`).
+  - Handle array item deletions (`$patch: "delete"`).
+  - Handle array item modifications (recursive Diff).
+
+- [ ] **7.3. Implement Reordering Diff**
+  - Detect changes in order for arrays and objects.
+  - Generate `$position` and `$anchor` markers to replicate the target order.
+  - Optimize for minimal moves (e.g., Longest Common Subsequence logic).
+
+## Phase 8: CLI Tool (Schema Patching)
+
+- [ ] **8.1. Create CLI Project**
   - Create a new console application project `JsonDdm.Tools` (or similar).
   - Add argument parsing.
 
-- [ ] **7.2. Implement Schema Walker**
+- [ ] **8.2. Implement Schema Walker**
   - Load a JSON Schema file.
   - Recursively traverse the schema.
 
-- [ ] **7.3. Implement Schema Injection**
+- [ ] **8.3. Implement Schema Injection**
   - Inject the `$defs` for DDM controls.
   - Wrap properties in `oneOf` to allow DDM control objects.
   - Output the patched schema.
   - Test with a sample schema.
 
-## Phase 8: Final Polish
+## Phase 9: Final Polish
 
-- [ ] **8.1. Documentation**
+- [ ] **9.1. Documentation**
   - Update README with simple usage examples based on the actual API.
   - Ensure XML documentation comments are present on public APIs.
 
-- [ ] **8.2. CI/CD Preparation**
+- [ ] **9.2. CI/CD Preparation**
   - Ensure all tests pass.
   - Verify NuGet packaging metadata.
