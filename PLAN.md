@@ -4,13 +4,13 @@ This plan outlines the steps to implement the Deterministic Deep Merge (DDM) lib
 
 ## Phase 1: Project Setup & Core Infrastructure
 
-- [ ] **1.1. Create Project Structure**
+- [x] **1.1. Create Project Structure**
   - Verify the existing solution structure (`JsonDdm` library and `JsonDdm.Tests`).
   - Ensure target frameworks are set correctly (net8.0, net9.0, net10.0, netstandard2.0) in `JsonDdm.csproj`.
   - Check that `System.Text.Json` dependency is included if needed for older frameworks (netstandard2.0).
 
-- [ ] **1.2. Define Configuration Options**
-  - Create the `JsonDdmOptions` (or `MergeOptions`) class as per the spec.
+- [x] **1.2. Define Configuration Options**
+  - Create the `JsonDdmOptions` class as per the spec.
   - specific properties: `IdKey` (default "$id"), `PositionKey` (default "$position"), `AnchorKey` (default "$anchor"), `PatchKey` (default "$patch"), `ValueKey` (default "$value"), `ThrowOnMissingAnchor` (default true).
 
 - [ ] **1.3. Create the Merger Class Skeleton**
