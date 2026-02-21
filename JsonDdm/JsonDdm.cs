@@ -8,6 +8,7 @@ namespace JsonDdm;
 public class JsonDdm
 {
   private readonly JsonDdmOptions _options;
+  private readonly char? _prefixChar;
 
   /// <summary>
   /// Initializes a new instance of the <see cref="JsonDdm"/> class.
@@ -16,6 +17,20 @@ public class JsonDdm
   public JsonDdm(JsonDdmOptions? options = null)
   {
     _options = options ?? new JsonDdmOptions();
+    _prefixChar = GetPrefixChar();
+  }
+
+  /// <summary>
+  /// Extracts the prefix character used for control keys (e.g., '$' from '$id').
+  /// Returns null if the first character is alphanumeric (no special prefix).
+  /// </summary>
+  private char? GetPrefixChar()
+  {
+    if (string.IsNullOrEmpty(_options.IdKey))
+      return null;
+
+    var firstChar = _options.IdKey[0];
+    return char.IsLetterOrDigit(firstChar) ? null : firstChar;
   }
 
   /// <summary>
@@ -81,6 +96,31 @@ public class JsonDdm
 
     return overrideNode.DeepClone();
   }
+
+  private JsonNode? CloneWithoutControlKeys(JsonNode? node)
+  {
+    if (node is null) return null;
+
+    if (node is JsonObject obj)
+    {
+      var newObj = new JsonObject();
+      foreach (var kvp in obj)
+      {
+        if (kvp.Key == _options.PositionKey ||
+            kvp.Key == _options.AnchorKey ||
+            kvp.Key == _options.PatchKey)
+        {
+          continue;
+        }
+        // Do NOT strip ValueKey here because Merge() needs it to unwrap the value.
+
+        newObj[kvp.Key] = kvp.Value?.DeepClone();
+      }
+      return newObj;
+    }
+    return node.DeepClone();
+  }
+
 
   private JsonArray MergeArrays(JsonArray baseArr, JsonArray overrideArr)
   {
@@ -151,7 +191,7 @@ public class JsonDdm
     {
       if (item != null)
       {
-        resultArr.Add(item.DeepClone()); // Use DeepClone to detach from previous parent if necessary, but actually we created new nodes via Merge/Clone earlier.
+        resultArr.Add(CloneWithoutControlKeys(item)); // Strip control keys here
       }
     }
 
@@ -270,12 +310,11 @@ public class JsonDdm
       var overrideValue = kvp.Value;
 
       // Handle key escaping (Phase 6.1)
-      // If key starts with "$$", unescape it to "$"
+      // If key starts with doubled prefix (e.g., "$$" when prefix is '$'), unescape it.
       // Spec: "If a data property literally matches a control key... escape it"
       // Default strategy is doubling prefix.
-      // We'll apply this to any key starting with "$$".
       string targetKey = key;
-      if (key.StartsWith("$$"))
+      if (_prefixChar.HasValue && key.Length >= 2 && key[0] == _prefixChar.Value && key[1] == _prefixChar.Value)
       {
         targetKey = key.Substring(1);
       }
@@ -330,7 +369,8 @@ public class JsonDdm
           }
         }
 
-        result[targetKey] = Merge(baseValue, overrideValue);
+        var cleanOverride = CloneWithoutControlKeys(overrideValue);
+        result[targetKey] = Merge(baseValue, cleanOverride);
       }
       else
       {
@@ -340,7 +380,8 @@ public class JsonDdm
         }
         else
         {
-          result[targetKey] = Merge(null, overrideValue);
+          var cleanOverride = CloneWithoutControlKeys(overrideValue);
+          result[targetKey] = Merge(null, cleanOverride);
         }
       }
     }

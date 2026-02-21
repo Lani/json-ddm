@@ -65,4 +65,4 @@ See [SPEC.md](SPEC.md) for details on the Deterministic Deep Merge (DDM) protoco
 
 ## About
 
-Made with 🤘 by [Niklas "Lani" Lagergren](https://github.com/Lani) and [Gemini](https://gemini.google.com/).
+Made with 🤘 by [Niklas "Lani" Lagergren](https://github.com/Lani) and [Copilot](https://github.com/features/copilot).
