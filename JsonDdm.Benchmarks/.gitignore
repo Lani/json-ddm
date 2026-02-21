@@ -1,0 +1,5 @@
+BenchmarkDotNet.Artifacts/
+baseline-results/
+current-results/
+full-results/
+*.log

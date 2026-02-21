@@ -1,0 +1,157 @@
+name: Performance Benchmarks
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'JsonDdm/**'
+      - 'JsonDdm.Benchmarks/**'
+  workflow_dispatch:
+    inputs:
+      compare_to_main:
+        description: 'Compare results to main branch'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write  # For posting comments
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+    
+    # Run baseline benchmarks from main branch (if comparing)
+    - name: Run baseline benchmarks (main branch)
+      if: github.event_name == 'pull_request' || inputs.compare_to_main
+      run: |
+        # Save current branch
+        CURRENT_BRANCH=$(git branch --show-current)
+        CURRENT_SHA=${{ github.sha }}
+        
+        # Checkout main and run benchmarks
+        git checkout main
+        cd JsonDdm.Benchmarks
+        dotnet run -c Release -- \
+          --filter "*MergeBenchmarks*" \
+          --exporters json \
+          --artifacts ./baseline-results
+        
+        # Return to PR branch
+        git checkout $CURRENT_SHA
+      continue-on-error: true
+    
+    # Run current benchmarks
+    - name: Run current benchmarks
+      run: |
+        cd JsonDdm.Benchmarks
+        dotnet run -c Release -- \
+          --filter "*MergeBenchmarks*" \
+          --exporters json markdown \
+          --artifacts ./current-results
+    
+    # Upload results as artifacts
+    - name: Upload baseline results
+      if: github.event_name == 'pull_request' || inputs.compare_to_main
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-baseline-${{ github.run_number }}
+        path: JsonDdm.Benchmarks/baseline-results/**/*
+        retention-days: 30
+      continue-on-error: true
+    
+    - name: Upload current results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-current-${{ github.run_number }}
+        path: JsonDdm.Benchmarks/current-results/**/*
+        retention-days: 30
+    
+    # Post results as PR comment (optional - requires custom script)
+    - name: Post benchmark results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Read markdown results if available
+          const resultsPath = 'JsonDdm.Benchmarks/current-results';
+          let comment = '## 📊 Benchmark Results\n\n';
+          
+          try {
+            // Find markdown file
+            const files = fs.readdirSync(resultsPath);
+            const mdFile = files.find(f => f.endsWith('.md'));
+            
+            if (mdFile) {
+              const content = fs.readFileSync(path.join(resultsPath, mdFile), 'utf8');
+              comment += content;
+            } else {
+              comment += 'Benchmark completed. View artifacts for detailed results.';
+            }
+          } catch (error) {
+            comment += `⚠️ Could not read benchmark results: ${error.message}`;
+          }
+          
+          comment += '\n\n---\n';
+          comment += `Run ID: ${context.runId}\n`;
+          comment += `Commit: ${context.sha.substring(0, 7)}`;
+          
+          // Post comment
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+      continue-on-error: true
+    
+    # Fail if performance regressed significantly (optional)
+    - name: Check for performance regression
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "Performance regression check would go here"
+        echo "You can implement custom logic to compare JSON results"
+        echo "and fail the build if metrics degraded beyond threshold"
+      continue-on-error: true
+
+  # Full benchmark suite (manual trigger only)
+  full-benchmark:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+    
+    - name: Run all benchmarks
+      run: |
+        cd JsonDdm.Benchmarks
+        dotnet run -c Release -- \
+          --exporters json html csv markdown \
+          --artifacts ./full-results
+    
+    - name: Upload full results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-full-${{ github.run_number }}
+        path: JsonDdm.Benchmarks/full-results/**/*
+        retention-days: 90
