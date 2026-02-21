@@ -80,7 +80,7 @@ This plan outlines the steps to implement the Deterministic Deep Merge (DDM) lib
   - Ensure control keys can be used as literal data keys if escaped.
   - Create unit tests for escaping.
 
-- [ ] **6.2. Conflict Resolution Verification**
+- [x] **6.2. Conflict Resolution Verification**
   - Verify "Last-In-Wins" behavior (ensure strict order of operations).
   - Create complex scenarios with multiple merges to verify determinism.
 
