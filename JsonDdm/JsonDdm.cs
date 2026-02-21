@@ -124,19 +124,18 @@ public class JsonDdm
 
   private JsonArray MergeArrays(JsonArray baseArr, JsonArray overrideArr)
   {
-    // Clone base array to a working list of (Item, IsDeleted) tuples
-    // Actually, use a simple list and null out deleted items.
-    var workingList = new List<JsonNode?>();
+    // Use clone-on-write: store references initially, only clone when actually modifying
+    var workingList = new List<(JsonNode? Item, bool NeedsClone)>();
     foreach (var item in baseArr)
     {
-      workingList.Add(item?.DeepClone());
+      workingList.Add((item, true)); // Mark as needing clone when used
     }
 
     // Build ID map to find index of base items by ID
     var baseIdMap = new Dictionary<string, int>();
     for (int i = 0; i < workingList.Count; i++)
     {
-      var id = GetId(workingList[i]);
+      var id = GetId(workingList[i].Item);
       if (id != null)
       {
         baseIdMap[id] = i;
@@ -155,11 +154,13 @@ public class JsonDdm
         // Match found in base: Merge or Delete
         if (IsDelete(overrideItem))
         {
-          workingList[baseIndex] = null; // Mark for removal
+          workingList[baseIndex] = (null, false); // Mark for removal (no clone needed)
         }
         else
         {
-          workingList[baseIndex] = Merge(workingList[baseIndex], overrideItem);
+          // Merge handles cloning internally, so result is already a new node
+          var merged = Merge(workingList[baseIndex].Item, overrideItem);
+          workingList[baseIndex] = (merged, false); // Already cloned by Merge
         }
       }
       else
@@ -174,9 +175,13 @@ public class JsonDdm
 
     // Construct result list
     var resultList = new List<JsonNode?>();
-    foreach (var item in workingList)
+    foreach (var (item, needsClone) in workingList)
     {
-      if (item != null) resultList.Add(item);
+      if (item != null)
+      {
+        // Only clone if item was never modified (still references original)
+        resultList.Add(needsClone ? item.DeepClone() : item);
+      }
     }
     foreach (var item in appendList)
     {
@@ -222,12 +227,33 @@ public class JsonDdm
       }
     }
 
+    // Build ID-to-index dictionary once to avoid O(n²) complexity
+    var idToIndex = new Dictionary<string, int>();
+    for (int i = 0; i < list.Count; i++)
+    {
+      var id = GetId(list[i]);
+      if (id != null)
+      {
+        idToIndex[id] = i;
+      }
+    }
+
     foreach (var (item, pos, anchor) in moves)
     {
       int currentIdx = list.IndexOf(item);
       if (currentIdx == -1) continue;
 
       list.RemoveAt(currentIdx);
+
+      // Update ID-to-index map after removal
+      for (int i = currentIdx; i < list.Count; i++)
+      {
+        var id = GetId(list[i]);
+        if (id != null && idToIndex.ContainsKey(id))
+        {
+          idToIndex[id] = i;
+        }
+      }
 
       int targetIdx = list.Count; // Default to end
 
@@ -242,17 +268,7 @@ public class JsonDdm
       else if ((pos == "before" || pos == "after") && anchor != null)
       {
         int anchorIdx = -1;
-        for (int i = 0; i < list.Count; i++)
-        {
-          var id = GetId(list[i]);
-          if (id == anchor)
-          {
-            anchorIdx = i;
-            break;
-          }
-        }
-
-        if (anchorIdx != -1)
+        if (idToIndex.TryGetValue(anchor, out anchorIdx))
         {
           if (pos == "before") targetIdx = anchorIdx;
           else if (pos == "after") targetIdx = anchorIdx + 1;
@@ -270,6 +286,16 @@ public class JsonDdm
       else
       {
         list.Insert(targetIdx, item);
+      }
+
+      // Update ID-to-index map after insertion
+      for (int i = targetIdx; i < list.Count; i++)
+      {
+        var id = GetId(list[i]);
+        if (id != null)
+        {
+          idToIndex[id] = i;
+        }
       }
     }
   }
@@ -301,6 +327,7 @@ public class JsonDdm
 
   private JsonNode? MergeObjects(JsonObject baseObj, JsonObject overrideObj)
   {
+    // Clone base to preserve property order
     var result = (JsonObject)baseObj.DeepClone();
     var moves = new List<(string Key, string Position, string? Anchor)>();
 
@@ -392,13 +419,26 @@ public class JsonDdm
       var props = new List<KeyValuePair<string, JsonNode?>>();
       foreach (var kvp in result) props.Add(new KeyValuePair<string, JsonNode?>(kvp.Key, kvp.Value));
 
+      // Build key-to-index dictionary once to avoid O(n²) complexity
+      var keyToIndex = new Dictionary<string, int>();
+      for (int i = 0; i < props.Count; i++)
+      {
+        keyToIndex[props[i].Key] = i;
+      }
+
       foreach (var (key, pos, anchor) in moves)
       {
-        int currentIdx = props.FindIndex(p => p.Key == key);
-        if (currentIdx == -1) continue;
+        int currentIdx = -1;
+        if (!keyToIndex.TryGetValue(key, out currentIdx)) continue;
 
         var kvp = props[currentIdx];
         props.RemoveAt(currentIdx);
+
+        // Update key-to-index map after removal
+        for (int i = currentIdx; i < props.Count; i++)
+        {
+          keyToIndex[props[i].Key] = i;
+        }
 
         int targetIdx = props.Count;
 
@@ -406,8 +446,8 @@ public class JsonDdm
         else if (pos == "end") targetIdx = props.Count;
         else if ((pos == "before" || pos == "after") && anchor != null)
         {
-          int anchorIdx = props.FindIndex(p => p.Key == anchor);
-          if (anchorIdx != -1)
+          int anchorIdx = -1;
+          if (keyToIndex.TryGetValue(anchor, out anchorIdx))
           {
             if (pos == "before") targetIdx = anchorIdx;
             else if (pos == "after") targetIdx = anchorIdx + 1;
@@ -420,6 +460,12 @@ public class JsonDdm
 
         if (targetIdx >= props.Count) props.Add(kvp);
         else props.Insert(targetIdx, kvp);
+
+        // Update key-to-index map after insertion
+        for (int i = targetIdx; i < props.Count; i++)
+        {
+          keyToIndex[props[i].Key] = i;
+        }
       }
 
       result.Clear();
