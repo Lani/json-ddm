@@ -222,6 +222,8 @@ public class JsonDdm
       }
     }
 
+    if (moves.Count == 0) return;
+
     // Build id↔index maps once — O(n) GetId() calls total, then maintained cheaply
     // using a parallel indexToId list that avoids GetId() calls in update loops.
     var indexToId = new List<string?>(list.Count);
