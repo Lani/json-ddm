@@ -32,6 +32,11 @@ jobs:
       with:
         dotnet-version: '10.0.x'
     
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22.x'
+    
     # Run baseline benchmarks from main branch (if comparing)
     - name: Run baseline benchmarks (main branch)
       if: github.event_name == 'pull_request' || inputs.compare_to_main
@@ -78,124 +83,28 @@ jobs:
         path: JsonDdm.Benchmarks/current-results/**/*
         retention-days: 30
     
-    # Post results as PR comment with comparison
+    # Generate benchmark comparison markdown
+    - name: Generate comparison report
+      if: github.event_name == 'pull_request'
+      run: |
+        node .github/scripts/compare-benchmarks.js \
+          JsonDdm.Benchmarks/baseline-results \
+          JsonDdm.Benchmarks/current-results \
+          /tmp/benchmark-comment.md
+      continue-on-error: true
+    
+    # Post results as PR comment (or update existing)
     - name: Post benchmark results
       if: github.event_name == 'pull_request'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          const path = require('path');
-          
-          let comment = '## 📊 Benchmark Results\n\n';
-          
-          try {
-            const baselinePath = 'JsonDdm.Benchmarks/baseline-results';
-            const currentPath = 'JsonDdm.Benchmarks/current-results';
-            
-            // Find JSON result files
-            const findJsonFile = (dir) => {
-              try {
-                const files = fs.readdirSync(dir);
-                return files.find(f => f.endsWith('-full-compressed.json') || f.endsWith('.json'));
-              } catch (e) {
-                return null;
-              }
-            };
-            
-            const baselineFile = findJsonFile(baselinePath);
-            const currentFile = findJsonFile(currentPath);
-            
-            let baselineData = null;
-            let currentData = null;
-            
-            if (baselineFile) {
-              const content = fs.readFileSync(path.join(baselinePath, baselineFile), 'utf8');
-              baselineData = JSON.parse(content);
-            }
-            
-            if (currentFile) {
-              const content = fs.readFileSync(path.join(currentPath, currentFile), 'utf8');
-              currentData = JSON.parse(content);
-            }
-            
-            if (currentData && currentData.Benchmarks) {
-              // Create comparison table
-              comment += '| Benchmark | Baseline | Current | Difference | Change | Status |\n';
-              comment += '|-----------|----------|---------|------------|--------|--------|\n';
-              
-              currentData.Benchmarks.forEach(current => {
-                const name = current.MethodTitle || current.Method || 'Unknown';
-                const currentMean = current.Statistics?.Mean || current.Mean || 0;
-                const currentUnit = 'ns';
-                
-                let baseline = null;
-                if (baselineData && baselineData.Benchmarks) {
-                  baseline = baselineData.Benchmarks.find(b => 
-                    (b.MethodTitle || b.Method) === name
-                  );
-                }
-                
-                if (baseline) {
-                  const baselineMean = baseline.Statistics?.Mean || baseline.Mean || 0;
-                  const diff = currentMean - baselineMean;
-                  const percentChange = baselineMean > 0 ? ((diff / baselineMean) * 100).toFixed(2) : 0;
-                  
-                  // Format numbers with proper units
-                  const formatTime = (ns) => {
-                    if (ns >= 1e9) return `${(ns / 1e9).toFixed(2)} s`;
-                    if (ns >= 1e6) return `${(ns / 1e6).toFixed(2)} ms`;
-                    if (ns >= 1e3) return `${(ns / 1e3).toFixed(2)} μs`;
-                    return `${ns.toFixed(2)} ns`;
-                  };
-                  
-                  const status = diff <= 0 ? '✅' : '❌';
-                  const diffSign = diff > 0 ? '+' : '';
-                  const changeStr = `${diffSign}${percentChange}%`;
-                  
-                  comment += `| ${name} | ${formatTime(baselineMean)} | ${formatTime(currentMean)} | ${diffSign}${formatTime(Math.abs(diff))} | ${changeStr} | ${status} |\n`;
-                } else {
-                  // No baseline - just show current
-                  const formatTime = (ns) => {
-                    if (ns >= 1e9) return `${(ns / 1e9).toFixed(2)} s`;
-                    if (ns >= 1e6) return `${(ns / 1e6).toFixed(2)} ms`;
-                    if (ns >= 1e3) return `${(ns / 1e3).toFixed(2)} μs`;
-                    return `${ns.toFixed(2)} ns`;
-                  };
-                  
-                  comment += `| ${name} | N/A | ${formatTime(currentMean)} | N/A | N/A | 🆕 |\n`;
-                }
-              });
-              
-              // Add legend
-              comment += '\n### Legend\n\n';
-              comment += '- **Benchmark**: Name of the benchmark test\n';
-              comment += '- **Baseline**: Performance on `main` branch (mean execution time)\n';
-              comment += '- **Current**: Performance of current PR (mean execution time)\n';
-              comment += '- **Difference**: Absolute time difference (Current - Baseline)\n';
-              comment += '- **Change**: Percentage change from baseline\n';
-              comment += '- **Status**: ✅ Improved (faster) | ❌ Regressed (slower) | 🆕 New benchmark\n';
-              comment += '\n💡 _Lower execution time is better_\n';
-              
-            } else {
-              comment += 'Benchmark completed but could not parse results. View artifacts for detailed results.\n';
-            }
-            
-          } catch (error) {
-            comment += `⚠️ Could not process benchmark results: ${error.message}\n\n`;
-            comment += '```\n' + error.stack + '\n```\n';
-          }
-          
-          comment += '\n---\n';
-          comment += `Run ID: ${context.runId} | Commit: ${context.sha.substring(0, 7)}`;
-          
-          // Post comment
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: comment
-          });
+      run: |
+        node .github/scripts/post-pr-comment.js \
+          /tmp/benchmark-comment.md \
+          ${{ github.event.pull_request.number }} \
+          ${{ github.repository_owner }} \
+          ${{ github.event.repository.name }} \
+          ${{ secrets.GITHUB_TOKEN }} \
+          ${{ github.run_id }} \
+          ${{ github.sha }}
       continue-on-error: true
     
     # Fail if performance regressed significantly (optional)
