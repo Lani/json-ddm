@@ -41,4 +41,12 @@ public class JsonDdmOptions
   /// Default is true.
   /// </summary>
   public bool ThrowOnMissingAnchor { get; set; } = true;
+
+  /// <summary>
+  /// Gets or sets the maximum nesting depth allowed during a merge operation.
+  /// When this depth is exceeded an <see cref="InvalidOperationException"/> is thrown,
+  /// preventing stack overflows caused by deeply nested or malicious input.
+  /// Default is 100.
+  /// </summary>
+  public int MaxDepth { get; set; } = 100;
 }

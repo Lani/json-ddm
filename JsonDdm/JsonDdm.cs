@@ -41,6 +41,14 @@ public class JsonDdm
   /// <returns>The merged JSON node.</returns>
   public JsonNode? Merge(JsonNode? baseNode, JsonNode? overrideNode)
   {
+    return MergeInternal(baseNode, overrideNode, 0);
+  }
+
+  private JsonNode? MergeInternal(JsonNode? baseNode, JsonNode? overrideNode, int depth)
+  {
+    if (depth > _options.MaxDepth)
+      throw new InvalidOperationException($"Maximum nesting depth of {_options.MaxDepth} exceeded.");
+
     if (overrideNode is null)
     {
       return null;
@@ -62,11 +70,11 @@ public class JsonDdm
     {
       if (overrideNode is JsonObject ovObj)
       {
-        return MergeObjects(new JsonObject(), ovObj);
+        return MergeObjects(new JsonObject(), ovObj, depth);
       }
       if (overrideNode is JsonArray ovArr)
       {
-        return MergeArrays(new JsonArray(), ovArr);
+        return MergeArrays(new JsonArray(), ovArr, depth);
       }
       return overrideNode.DeepClone();
     }
@@ -75,23 +83,23 @@ public class JsonDdm
     {
       if (overrideNode is JsonObject ovObj)
       {
-        return MergeObjects(new JsonObject(), ovObj);
+        return MergeObjects(new JsonObject(), ovObj, depth);
       }
       if (overrideNode is JsonArray ovArr)
       {
-        return MergeArrays(new JsonArray(), ovArr);
+        return MergeArrays(new JsonArray(), ovArr, depth);
       }
       return overrideNode.DeepClone();
     }
 
     if (overrideNode is JsonObject overrideObj && baseNode is JsonObject baseObj)
     {
-      return MergeObjects(baseObj, overrideObj);
+      return MergeObjects(baseObj, overrideObj, depth);
     }
 
     if (baseNode is JsonArray baseArr && overrideNode is JsonArray overrideArr)
     {
-      return MergeArrays(baseArr, overrideArr);
+      return MergeArrays(baseArr, overrideArr, depth);
     }
 
     return overrideNode.DeepClone();
@@ -122,7 +130,7 @@ public class JsonDdm
   }
 
 
-  private JsonArray MergeArrays(JsonArray baseArr, JsonArray overrideArr)
+  private JsonArray MergeArrays(JsonArray baseArr, JsonArray overrideArr, int depth)
   {
     // Store references to base items; CloneWithoutControlKeys handles the single
     // necessary clone at output, and Merge() always returns fresh parentless nodes.
@@ -159,7 +167,7 @@ public class JsonDdm
         }
         else
         {
-          workingList[baseIndex] = Merge(workingList[baseIndex], overrideItem);
+          workingList[baseIndex] = MergeInternal(workingList[baseIndex], overrideItem, depth + 1);
         }
       }
       else
@@ -167,7 +175,7 @@ public class JsonDdm
         // No match (new ID or no ID): Append
         if (!IsDelete(overrideItem))
         {
-          appendList.Add(Merge(null, overrideItem));
+          appendList.Add(MergeInternal(null, overrideItem, depth + 1));
         }
       }
     }
@@ -325,7 +333,7 @@ public class JsonDdm
     return false;
   }
 
-  private JsonNode? MergeObjects(JsonObject baseObj, JsonObject overrideObj)
+  private JsonNode? MergeObjects(JsonObject baseObj, JsonObject overrideObj, int depth)
   {
     // Clone base to preserve property order
     var result = (JsonObject)baseObj.DeepClone();
@@ -397,7 +405,7 @@ public class JsonDdm
         }
 
         var cleanOverride = CloneWithoutControlKeys(overrideValue);
-        result[targetKey] = Merge(baseValue, cleanOverride);
+        result[targetKey] = MergeInternal(baseValue, cleanOverride, depth + 1);
       }
       else
       {
@@ -408,7 +416,7 @@ public class JsonDdm
         else
         {
           var cleanOverride = CloneWithoutControlKeys(overrideValue);
-          result[targetKey] = Merge(null, cleanOverride);
+          result[targetKey] = MergeInternal(null, cleanOverride, depth + 1);
         }
       }
     }
