@@ -36,7 +36,7 @@ The code is well-structured and functional, but there are several areas for impr
 
 ## **⚠️ Critical Issues**
 
-### 1. **Performance Problems**
+### [x] 1. **Performance Problems**
 
 #### **Issue: O(n²) complexity in `ReorderList`**
 
@@ -83,7 +83,7 @@ Almost every operation clones nodes, even when unnecessary.
 - Actually modifying a shared structure
 - Consider using a "clone-on-write" strategy where nodes are only cloned if they will be modified
 
-### 2. **Null Reference Issues**
+### [ ] 2. **Null Reference Issues**
 
 #### **Issue: Potential null handling concerns in object reordering**
 
@@ -100,7 +100,7 @@ While this may work with `JsonObject`, it's semantically unclear and relies on i
 
 **Recommendation**: Explicitly handle null values or add XML documentation explaining the behavior.
 
-### 3. **Security Concerns**
+### [ ] 3. **Security Concerns**
 
 #### **Issue: No input validation for depth/size limits**
 
@@ -164,7 +164,7 @@ throw new InvalidOperationException("Specified anchor not found");
 
 ## **🔧 Code Quality Issues**
 
-### 4. **Inconsistent Error Handling**
+### [ ] 4. **Inconsistent Error Handling**
 
 - Some errors throw exceptions (`ThrowOnMissingAnchor`)
 - Others silently fail (invalid position values like `"middle"` default to end)
@@ -182,7 +182,7 @@ if (pos != "start" && pos != "end" && pos != "before" && pos != "after")
 
 Consider adding an option for strict vs. relaxed validation mode.
 
-### 5. **Magic Strings & Constants**
+### [ ] 5. **Magic Strings & Constants**
 
 **Location:** Multiple locations, e.g., [JsonDdm.cs](JsonDdm/JsonDdm.cs#L293-L298)
 
@@ -206,7 +206,7 @@ This improves:
 - Type safety (compile-time checking)
 - IDE support (refactoring, find usages)
 
-### 6. **Code Duplication**
+### [ ] 6. **Code Duplication**
 
 The reordering logic appears twice with minor variations:
 
@@ -225,7 +225,7 @@ private void ReorderItems<T>(
 }
 ```
 
-### 7. **Incomplete Key Escaping Logic**
+### [ ] 7. **Incomplete Key Escaping Logic**
 
 **Location:** [JsonDdm.cs](JsonDdm/JsonDdm.cs#L312-L317)
 
@@ -258,7 +258,7 @@ private string EscapeKeyIfNeeded(string key)
 }
 ```
 
-### 8. **Confusing Control Flow**
+### [ ] 8. **Confusing Control Flow**
 
 **Location:** [JsonDdm.cs](JsonDdm/JsonDdm.cs#L334-L345)
 
@@ -293,7 +293,7 @@ if (ShouldPreserveBaseValue(ovObj))
 }
 ```
 
-### 9. **GetId() Repetitive Null Checks**
+### [ ] 9. **GetId() Repetitive Null Checks**
 
 **Location:** [JsonDdm.cs](JsonDdm/JsonDdm.cs#L188-L197)
 
@@ -340,7 +340,7 @@ private bool TryGetStringProperty(JsonObject obj, string key, out string? value)
 
 ## **🎯 Best Practices & Improvements**
 
-### 10. **Missing XML Documentation**
+### [ ] 10. **Missing XML Documentation**
 
 Private methods lack documentation. While not required, complex logic like `ReorderList` would benefit from detailed comments explaining:
 
@@ -348,7 +348,7 @@ Private methods lack documentation. While not required, complex logic like `Reor
 - Why items are removed then re-inserted
 - Edge cases handled
 
-### 11. **No Logging/Diagnostics**
+### [ ] 11. **No Logging/Diagnostics**
 
 For a library that processes complex transformations, there's no way to trace what happened during a merge.
 
@@ -382,7 +382,7 @@ public class JsonDdmOptions
 }
 ```
 
-### 12. **Options Validation**
+### [ ] 12. **Options Validation**
 
 **Location:** [JsonDdmOptions.cs](JsonDdm/JsonDdmOptions.cs)
 
@@ -423,7 +423,7 @@ public class JsonDdmOptions
 }
 ```
 
-### 13. **Type Checking Could Be More Robust**
+### [ ] 13. **Type Checking Could Be More Robust**
 
 **Location:** [JsonDdm.cs](JsonDdm/JsonDdm.cs#L73)
 
@@ -448,15 +448,15 @@ switch (baseNode, overrideNode)
 }
 ```
 
-### 14. **Missing Disposal/Cleanup**
+### [ ] 14. **Missing Disposal/Cleanup**
 
 While `JsonNode` doesn't require disposal, if this were to handle streams or large documents, there's no cleanup mechanism. Consider implementing `IDisposable` if you add caching or pooling in the future.
 
-### 15. **No Unit Test Coverage Metrics Visible**
+### [ ] 15. **No Unit Test Coverage Metrics Visible**
 
 While test files exist, there's no visibility into coverage percentage. Recommend adding coverage reporting to CI/CD pipeline.
 
-### 16. **CloneWithoutControlKeys Could Be More Efficient**
+### [ ] 16. **CloneWithoutControlKeys Could Be More Efficient**
 
 **Location:** [JsonDdm.cs](JsonDdm/JsonDdm.cs#L100-L121)
 
@@ -491,7 +491,7 @@ private JsonNode? CloneWithoutControlKeys(JsonNode? node)
 1. Document that control keys are only removed at top level
 2. Or make it recursive if that's the intent
 
-### 17. **Potential Index Out of Bounds**
+### [ ] 17. **Potential Index Out of Bounds**
 
 **Location:** [JsonDdm.cs](JsonDdm/JsonDdm.cs#L158-L161)
 
@@ -501,7 +501,7 @@ else if (pos == "after") targetIdx = anchorIdx + 1;
 
 If `anchorIdx` is the last element, `targetIdx` will equal `list.Count`, which is handled by the later code, but this could be clearer with a comment or explicit check.
 
-### 18. **Constructor Could Validate Options**
+### [ ] 18. **Constructor Could Validate Options**
 
 **Location:** [JsonDdm.cs](JsonDdm/JsonDdm.cs#L17-L21)
 

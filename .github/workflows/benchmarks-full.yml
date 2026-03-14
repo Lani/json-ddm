@@ -1,0 +1,38 @@
+name: Full Benchmark Suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      export_formats:
+        description: 'Export formats (space-separated: json html csv markdown)'
+        required: false
+        default: 'json html csv markdown'
+        type: string
+
+jobs:
+  full-benchmark:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+    
+    - name: Run all benchmarks
+      run: |
+        cd JsonDdm.Benchmarks
+        EXPORTERS="${{ inputs.export_formats || 'json html csv markdown' }}"
+        dotnet run -c Release -- \
+          --exporters $EXPORTERS \
+          --artifacts ./full-results
+    
+    - name: Upload full results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-full-${{ github.run_number }}
+        path: JsonDdm.Benchmarks/full-results/**/*
+        retention-days: 90
