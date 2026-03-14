@@ -88,8 +88,8 @@ jobs:
       if: github.event_name == 'pull_request'
       run: |
         node .github/scripts/compare-benchmarks.js \
-          JsonDdm.Benchmarks/baseline-results \
-          JsonDdm.Benchmarks/current-results \
+          JsonDdm.Benchmarks/baseline-results/results \
+          JsonDdm.Benchmarks/current-results/results \
           /tmp/benchmark-comment.md
       continue-on-error: true
     
