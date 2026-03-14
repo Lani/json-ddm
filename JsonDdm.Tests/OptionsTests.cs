@@ -250,4 +250,48 @@ public class OptionsTests
     Assert.Throws<InvalidOperationException>(() =>
         merger.Merge(JsonNode.Parse(baseJson), JsonNode.Parse(overrideJson)));
   }
+
+  [Fact]
+  public void Merge_AtDefaultMaxDepth_Succeeds()
+  {
+    var merger = new JsonDdm(); // default MaxDepth = 100
+    var result = merger.Merge(BuildNestedNode(100, 42), BuildNestedNode(100, 42));
+    Assert.NotNull(result);
+  }
+
+  [Fact]
+  public void Merge_ExceedsDefaultMaxDepth_ThrowsInvalidOperationException()
+  {
+    var merger = new JsonDdm(); // default MaxDepth = 100
+    Assert.Throws<InvalidOperationException>(() =>
+        merger.Merge(BuildNestedNode(101, 42), BuildNestedNode(101, 42)));
+  }
+
+  [Fact]
+  public void Merge_CustomMaxDepth_AtLimit_Succeeds()
+  {
+    var options = new JsonDdmOptions { MaxDepth = 5 };
+    var merger = new JsonDdm(options);
+    var result = merger.Merge(BuildNestedNode(5, 42), BuildNestedNode(5, 42));
+    Assert.NotNull(result);
+  }
+
+  [Fact]
+  public void Merge_CustomMaxDepth_ExceedsLimit_ThrowsInvalidOperationException()
+  {
+    var options = new JsonDdmOptions { MaxDepth = 5 };
+    var merger = new JsonDdm(options);
+    Assert.Throws<InvalidOperationException>(() =>
+        merger.Merge(BuildNestedNode(6, 42), BuildNestedNode(6, 42)));
+  }
+
+  // Builds a JsonNode tree {"a":{"a":{"a":...depth times...leafValue}}} programmatically,
+  // avoiding the JSON parser's own depth limit.
+  private static JsonNode BuildNestedNode(int depth, int leafValue)
+  {
+    JsonNode node = JsonValue.Create(leafValue)!;
+    for (int i = 0; i < depth; i++)
+      node = new System.Text.Json.Nodes.JsonObject { ["a"] = node };
+    return node;
+  }
 }
