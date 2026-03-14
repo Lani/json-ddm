@@ -471,7 +471,7 @@ public class JsonDdm
       result.Clear();
       foreach (var kvp in props)
       {
-        result[kvp.Key] = kvp.Value;
+        result[kvp.Key] = kvp.Value; // null is valid: preserves JSON null-valued properties
       }
     }
 

@@ -83,7 +83,7 @@ Almost every operation clones nodes, even when unnecessary.
 - Actually modifying a shared structure
 - Consider using a "clone-on-write" strategy where nodes are only cloned if they will be modified
 
-### [ ] 2. **Null Reference Issues**
+### [x] 2. **Null Reference Issues**
 
 #### **Issue: Potential null handling concerns in object reordering**
 
