@@ -6,13 +6,6 @@ on:
     paths:
       - 'JsonDdm/**'
       - 'JsonDdm.Benchmarks/**'
-  workflow_dispatch:
-    inputs:
-      compare_to_main:
-        description: 'Compare results to main branch'
-        required: false
-        default: true
-        type: boolean
 
 jobs:
   benchmark:
@@ -39,7 +32,7 @@ jobs:
     
     # Run baseline benchmarks from main branch (if comparing)
     - name: Run baseline benchmarks (main branch)
-      if: github.event_name == 'pull_request' || inputs.compare_to_main
+      if: github.event_name == 'pull_request'
       run: |
         # Save current branch
         CURRENT_BRANCH=$(git branch --show-current)
@@ -68,7 +61,7 @@ jobs:
     
     # Upload results as artifacts
     - name: Upload baseline results
-      if: github.event_name == 'pull_request' || inputs.compare_to_main
+      if: github.event_name == 'pull_request'
       uses: actions/upload-artifact@v4
       with:
         name: benchmark-baseline-${{ github.run_number }}
@@ -115,31 +108,3 @@ jobs:
         echo "You can implement custom logic to compare JSON results"
         echo "and fail the build if metrics degraded beyond threshold"
       continue-on-error: true
-
-  # Full benchmark suite (manual trigger only)
-  full-benchmark:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
-    
-    - name: Run all benchmarks
-      run: |
-        cd JsonDdm.Benchmarks
-        dotnet run -c Release -- \
-          --exporters json html csv markdown \
-          --artifacts ./full-results
-    
-    - name: Upload full results
-      uses: actions/upload-artifact@v4
-      with:
-        name: benchmark-full-${{ github.run_number }}
-        path: JsonDdm.Benchmarks/full-results/**/*
-        retention-days: 90

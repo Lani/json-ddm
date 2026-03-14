@@ -124,18 +124,19 @@ public class JsonDdm
 
   private JsonArray MergeArrays(JsonArray baseArr, JsonArray overrideArr)
   {
-    // Use clone-on-write: store references initially, only clone when actually modifying
-    var workingList = new List<(JsonNode? Item, bool NeedsClone)>();
+    // Store references to base items; CloneWithoutControlKeys handles the single
+    // necessary clone at output, and Merge() always returns fresh parentless nodes.
+    var workingList = new List<JsonNode?>();
     foreach (var item in baseArr)
     {
-      workingList.Add((item, true)); // Mark as needing clone when used
+      workingList.Add(item);
     }
 
     // Build ID map to find index of base items by ID
     var baseIdMap = new Dictionary<string, int>();
     for (int i = 0; i < workingList.Count; i++)
     {
-      var id = GetId(workingList[i].Item);
+      var id = GetId(workingList[i]);
       if (id != null)
       {
         baseIdMap[id] = i;
@@ -154,13 +155,11 @@ public class JsonDdm
         // Match found in base: Merge or Delete
         if (IsDelete(overrideItem))
         {
-          workingList[baseIndex] = (null, false); // Mark for removal (no clone needed)
+          workingList[baseIndex] = null; // Mark for removal
         }
         else
         {
-          // Merge handles cloning internally, so result is already a new node
-          var merged = Merge(workingList[baseIndex].Item, overrideItem);
-          workingList[baseIndex] = (merged, false); // Already cloned by Merge
+          workingList[baseIndex] = Merge(workingList[baseIndex], overrideItem);
         }
       }
       else
@@ -173,15 +172,11 @@ public class JsonDdm
       }
     }
 
-    // Construct result list
+    // Construct result list (no intermediate clone; CloneWithoutControlKeys handles it)
     var resultList = new List<JsonNode?>();
-    foreach (var (item, needsClone) in workingList)
+    foreach (var item in workingList)
     {
-      if (item != null)
-      {
-        // Only clone if item was never modified (still references original)
-        resultList.Add(needsClone ? item.DeepClone() : item);
-      }
+      if (item != null) resultList.Add(item);
     }
     foreach (var item in appendList)
     {
@@ -227,32 +222,35 @@ public class JsonDdm
       }
     }
 
-    // Build ID-to-index dictionary once to avoid O(n²) complexity
-    var idToIndex = new Dictionary<string, int>();
+    // Build id↔index maps once — O(n) GetId() calls total, then maintained cheaply
+    // using a parallel indexToId list that avoids GetId() calls in update loops.
+    var indexToId = new List<string?>(list.Count);
+    var idToIndex = new Dictionary<string, int>(list.Count);
     for (int i = 0; i < list.Count; i++)
     {
       var id = GetId(list[i]);
-      if (id != null)
-      {
-        idToIndex[id] = i;
-      }
+      indexToId.Add(id);
+      if (id != null) idToIndex[id] = i;
     }
 
     foreach (var (item, pos, anchor) in moves)
     {
-      int currentIdx = list.IndexOf(item);
+      // O(1) lookup by ID instead of O(n) list.IndexOf
+      var itemId = GetId(item);
+      int currentIdx;
+      if (itemId == null || !idToIndex.TryGetValue(itemId, out currentIdx))
+        currentIdx = list.IndexOf(item); // fallback for id-less items
       if (currentIdx == -1) continue;
 
       list.RemoveAt(currentIdx);
 
-      // Update ID-to-index map after removal
-      for (int i = currentIdx; i < list.Count; i++)
+      // Update maps after removal using indexToId — no GetId() calls needed
+      indexToId.RemoveAt(currentIdx);
+      if (itemId != null) idToIndex.Remove(itemId);
+      for (int i = currentIdx; i < indexToId.Count; i++)
       {
-        var id = GetId(list[i]);
-        if (id != null && idToIndex.ContainsKey(id))
-        {
-          idToIndex[id] = i;
-        }
+        var id = indexToId[i];
+        if (id != null) idToIndex[id] = i;
       }
 
       int targetIdx = list.Count; // Default to end
@@ -282,19 +280,19 @@ public class JsonDdm
       if (targetIdx >= list.Count)
       {
         list.Add(item);
+        indexToId.Add(itemId);
+        if (itemId != null) idToIndex[itemId] = list.Count - 1;
       }
       else
       {
         list.Insert(targetIdx, item);
-      }
-
-      // Update ID-to-index map after insertion
-      for (int i = targetIdx; i < list.Count; i++)
-      {
-        var id = GetId(list[i]);
-        if (id != null)
+        indexToId.Insert(targetIdx, itemId);
+        if (itemId != null) idToIndex[itemId] = targetIdx;
+        // Update indices for elements shifted after the insertion point
+        for (int i = targetIdx + 1; i < indexToId.Count; i++)
         {
-          idToIndex[id] = i;
+          var id = indexToId[i];
+          if (id != null) idToIndex[id] = i;
         }
       }
     }
